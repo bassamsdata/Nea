@@ -127,12 +127,8 @@ func main() {
 	}
 }
 
-// Define your functions here
-//such as
-//installNightly()
-//and installSpecificStable(version string)
-// These functions should
-//contain the logic to install Neovim versions as per your Vlang code.
+// Define your functions here, such as installNightly() and installSpecificStable(version string)
+// These functions should contain the logic to install Neovim versions as per your Vlang code.
 
 // TODO: need review and probably, should create all dirs here
 func setup() {
