@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -34,6 +36,8 @@ type Release struct {
 	Name string `json:"name"`
 }
 
+// TODO: add number of releases
+// Fetch stable neovim releases
 func fetchReleases() ([]Release, error) {
 	// 1. Make the HTTP Request
 	resp, err := http.Get(tagsURL)
@@ -66,6 +70,7 @@ func DetermineCurrentVersion() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("neovim is not symlinked: %v", err)
 	}
+	// Check if symlinked - I don't like this in Go
 	if fi.Mode()&os.ModeSymlink == 0 {
 		return "", fmt.Errorf("neovim is not symlinked")
 	}
@@ -77,6 +82,7 @@ func DetermineCurrentVersion() (string, error) {
 
 	parts := strings.Split(symlinkTarget, "/")
 
+	// the main logic
 	if strings.Contains(symlinkTarget, "nightly") {
 		for _, part := range parts {
 			if strings.HasPrefix(part, "20") {
@@ -112,4 +118,50 @@ func ReadVersionsInfo() ([]VersionInfo, error) {
 	}
 
 	return versions, nil
+}
+
+// Helper to extract a tar.gz archive
+func ExtractTarGz(filePath, targetDir string) error {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to open archive: %w", err)
+	}
+	defer file.Close()
+
+	gzipReader, err := gzip.NewReader(file)
+	if err != nil {
+		return fmt.Errorf("failed to create gzip reader: %w", err)
+	}
+	defer gzipReader.Close()
+
+	tarReader := tar.NewReader(gzipReader)
+
+	for header, err := tarReader.Next(); err == nil; header, err = tarReader.Next() {
+		targetPath := filepath.Join(targetDir, header.Name)
+
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(targetPath, 0755); err != nil {
+				return fmt.Errorf("failed to create directory: %w", err)
+			}
+		case tar.TypeReg:
+			outFile, err := os.Create(targetPath)
+			if err != nil {
+				return fmt.Errorf("failed to create target file: %w", err)
+			}
+			if _, err := io.Copy(outFile, tarReader); err != nil {
+				outFile.Close() // Close on error
+				return fmt.Errorf("failed to extract file: %w", err)
+			}
+			if err := outFile.Close(); err != nil {
+				return fmt.Errorf("failed to close file: %w", err)
+			}
+		default:
+			return fmt.Errorf("unknown type: %b in %s", header.Typeflag, header.Name)
+		}
+	}
+	if err != io.EOF {
+		return fmt.Errorf("error reading archive: %w", err)
+	}
+	return nil
 }
