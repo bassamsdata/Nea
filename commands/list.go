@@ -5,9 +5,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"nvm_manager_go/utils"
 	"os"
 	"strconv"
+	"strings"
+	"time"
 
+	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
 
@@ -15,7 +19,13 @@ type Tag struct {
 	Name string `json:"name"`
 }
 
-// TODO: this is working but probably there is a better version
+// Define a struct to hold version info for the table
+type VersionData struct {
+	Version string
+	Status  string
+}
+
+// TODO: we can use the fetchreleases() function and then call a table
 func ListHandler(cmd *cobra.Command, args []string) {
 	numVersions := 7 // Default number of versions to list
 
@@ -53,4 +63,46 @@ func ListHandler(cmd *cobra.Command, args []string) {
 		}
 		fmt.Println(tag.Name)
 	}
+}
+
+func listHandler(cmd *cobra.Command, args []string) { // Or no args if you want to list everything
+	versions, err := utils.ReadVersionsInfo()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to read versions info:", err)
+		return
+	}
+
+	// Determine the current version
+	currentVersion, err := utils.DetermineCurrentVersion()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to determine current version:", err)
+		return
+	}
+
+	// Prepare data for the table
+	var tableData []VersionData
+	for _, version := range versions {
+		status := "installed"
+		if strings.HasPrefix(version.Directory, "nightly") {
+			if version.Directory == currentVersion {
+				status = "used"
+			} else {
+				// Display the creation date
+				t, err := time.Parse(time.RFC3339, version.CreatedAt)
+				if err == nil {
+					status = t.Format("2006-01-02")
+				}
+			}
+		} else if version.Directory == currentVersion { // Stable version
+			status = "used"
+		}
+
+		tableData = append(tableData, VersionData{Version: version.Directory, Status: status})
+	}
+
+	// Create the table
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"Version", "Status"})
+	table.AppendBulk(tableData)
+	table.Render()
 }
