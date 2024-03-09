@@ -28,3 +28,102 @@ type VersionInfo struct {
 	Directory    string `json:"directory"`
 	UniqueNumber int    `json:"unique_number"`
 }
+
+func main() {
+	var rootCmd = &cobra.Command{
+		Use:   "nvimv",
+		Short: "Neovim version manager",
+		Long:  `Neovim version manager allows you to install, update, and switch between different versions of Neovim.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			// Main command logic here
+			fmt.Println("Use \"nvimv install nightly\" to install the latest nightly build.")
+		},
+	}
+
+	var installCmd = &cobra.Command{
+		Use:   "install [version]",
+		Short: "Install the latest nightly or a specific version",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			// version := args[0]
+			// if version == "nightly" {
+			// installNightly()
+			// } else {
+			// installSpecificStable(version)
+			// }
+		},
+	}
+	rootCmd.AddCommand(installCmd)
+
+	// Update Commands
+	updateCmd := &cobra.Command{
+		Use:   "update [nightly]",
+		Short: "Update a Neovim version",
+		Args:  cobra.MaximumNArgs(1),
+		// Run:   updateHandler(),
+	}
+	rootCmd.AddCommand(updateCmd)
+
+	// Update Commands
+	setupCmd := &cobra.Command{
+		Use:   "setup",
+		Short: "Setup directories and files",
+		Args:  cobra.ExactArgs(0),
+		// Run:   setup,
+	}
+	rootCmd.AddCommand(setupCmd)
+
+	// List Commands
+	listCmd := &cobra.Command{
+		Use:   "list",
+		Short: "List installed Neovim versions",
+		Run:   commands.ListHandler,
+	}
+	rootCmd.AddCommand(listCmd)
+
+	// Use Command
+	useCmd := &cobra.Command{
+		Use:   "use [nightly | latest | version]",
+		Short: "Switch to a specific Neovim version",
+		Args:  cobra.ExactArgs(1),
+		// Run:   useHandler(),
+	}
+	rootCmd.AddCommand(useCmd)
+
+	// Clean Commands
+	cleanCmd := &cobra.Command{
+		Use:   "clean",
+		Short: "Remove Neovim versions",
+	}
+
+	cleanNightlyCmd := &cobra.Command{
+		Use:   "nightly [all]",
+		Short: "Clean nightly versions",
+		Args:  cobra.MaximumNArgs(1),
+		// Run:   cleanNightlyHandler,
+	}
+	cleanCmd.AddCommand(cleanNightlyCmd)
+
+	cleanStableCmd := &cobra.Command{
+		Use:   "stable [version | all]",
+		Short: "Clean stable versions",
+		Args:  cobra.MinimumNArgs(1),
+		// Run:   cleanStableHandler,
+	}
+	cleanCmd.AddCommand(cleanStableCmd)
+
+	rootCmd.AddCommand(cleanCmd)
+
+	// Other Commands
+	checkCmd := &cobra.Command{
+		Use:   "check",
+		Short: "Check the currently active Neovim version",
+		// Run:   checkHandler,
+	}
+	rootCmd.AddCommand(checkCmd)
+
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
