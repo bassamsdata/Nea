@@ -2,11 +2,14 @@ package main
 
 import (
 	"fmt"
+	"nvm_manager_go/commands"
 	"os"
 	"path/filepath"
+
+	"github.com/spf13/cobra"
 )
 
-const (
+var (
 	homeDir          = os.Getenv("HOME")
 	appDir           = filepath.Join(homeDir, ".local", "share", "nv_manager")
 	neovimURL        = "https://github.com/neovim/neovim/releases/download/nightly/nvim-macos.tar.gz"
@@ -17,10 +20,6 @@ const (
 	tagsURL          = "https://api.github.com/repos/neovim/neovim/tags"
 	tagsNightlyURL   = "https://api.github.com/repos/neovim/neovim/releases/tags/nightly"
 )
-
-type Tag struct {
-	Name string `json:"name"`
-}
 
 type VersionInfo struct {
 	NodeID       string `json:"node_id"`
@@ -126,4 +125,32 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+// Define your functions here
+//such as
+//installNightly()
+//and installSpecificStable(version string)
+// These functions should
+//contain the logic to install Neovim versions as per your Vlang code.
+
+// TODO: need review and probably, should create all dirs here
+func setup() {
+	versionFilePath := filepath.Join(targetNightly, "versions_info.json")
+	if _, err := os.Stat(versionFilePath); !os.IsNotExist(err) {
+		fmt.Println("The versions_info.json file already exists.")
+		return
+	}
+
+	// Define the initial content for the versions_info.json file
+	initialContent := "[]" // Start with an empty JSON array
+
+	// Write the initial content to the file
+	err := os.WriteFile(versionFilePath, []byte(initialContent), 0644)
+	if err != nil {
+		fmt.Printf("Failed to create versions_info.json file: %s\n", err)
+		return
+	}
+
+	fmt.Println("The versions_info.json file has been created successfully.")
 }
