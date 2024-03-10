@@ -22,6 +22,7 @@ type VersionInfo struct {
 }
 
 func clean(target string, options []string) error {
+	// TODO: can we do it like `switch target` in Go?
 	switch {
 	case target == "nightly" && len(options) == 0: // clean nightly (last version)
 		return cleanLatestNightly()
@@ -51,6 +52,7 @@ func clean(target string, options []string) error {
 		}
 	}
 }
+
 func cleanLatestNightly() error {
 	versions, err := utils.ReadVersionsInfo()
 	if err != nil {
