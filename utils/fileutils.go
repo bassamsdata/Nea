@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 var (
@@ -118,6 +119,46 @@ func ReadVersionsInfo() ([]VersionInfo, error) {
 	}
 
 	return versions, nil
+}
+
+func CreateTargetDirectory(createdAt string) (string, error) {
+	t, err := time.Parse(time.RFC3339, createdAt)
+	if err != nil {
+		return "", err
+	}
+
+	// FIX: fix this
+	formattedDate := t.Format("2006-01-02")
+	targetDir := filepath.Join(targetDirNightly, formattedDate)
+
+	err = os.MkdirAll(targetDir, 0755)
+	if err != nil {
+		return "", err
+	}
+
+	return targetDir, nil
+}
+
+// TODO: Move to utils/fileutils.go
+func DownloadArchive(url, filePath string) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		return fmt.Errorf("failed to download file: %w", err)
+	}
+	defer resp.Body.Close()
+
+	outFile, err := os.Create(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to create output file: %w", err)
+	}
+	defer outFile.Close()
+
+	_, err = io.Copy(outFile, resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to save file: %w", err)
+	}
+
+	return nil
 }
 
 // Helper to extract a tar.gz archive

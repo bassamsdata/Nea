@@ -76,7 +76,7 @@ func main() {
 	listCmd := &cobra.Command{
 		Use:   "list",
 		Short: "List installed Neovim versions",
-		Run:   commands.ListHandler,
+		Run:   commands.ListHandlerLocal,
 	}
 	rootCmd.AddCommand(listCmd)
 
