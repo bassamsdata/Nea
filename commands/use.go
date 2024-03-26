@@ -2,20 +2,31 @@ package commands
 
 import (
 	"fmt"
+	"nvm_manager_go/utils"
 	"os"
+	"path/filepath"
+	"sort"
 )
 
 func useVersion(version string) error {
-	symlinkPath := "/usr/local/bin/nvim" // Assuming this path
+	symlinkPath := "/usr/local/bin/nvim"
 
 	var neovimBinary string
 
 	if version == "nightly" {
-		// based on sort order, the latest nightly version will be the last one in the list
-		neovimBinary = "helloniihgtly"
+		// TODO: Move it to its own function
+		versions, _ := utils.ReadVersionsInfo()
+		sort.Slice(versions, func(i, j int) bool {
+			return versions[i].CreatedAt > versions[j].CreatedAt
+		})
+		if len(versions) > 0 {
+			neovimBinary = versions[0].Directory
+		} else {
+			return fmt.Errorf("no nightly versions installed")
+		}
 	} else {
 		// Build the path for the specific version
-		neovimBinary = targetDirStable + version + "/nvim-macos/bin/nvim"
+		neovimBinary = filepath.Join(targetDirStable, version) + "/nvim-macos/bin/nvim"
 	}
 
 	if _, err := os.Stat(neovimBinary); err != nil {
