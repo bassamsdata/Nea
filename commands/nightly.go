@@ -3,12 +3,10 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"nvm_manager_go/utils"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/fatih/color"
 )
@@ -33,14 +31,14 @@ func installNightly() error {
 	}
 
 	// 3. Create Target Directory
-	targetDir, err := createTargetDirectory(latestRelease.CreatedAt)
+	targetDir, err := utils.CreateTargetDirectory(latestRelease.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("failed to create target directory: %w", err)
 	}
 
 	// 4. Download Archive
 	archivePath := filepath.Join(targetDir, "nvim-macos.tar.gz")
-	err = downloadArchive(nvm_night_url, archivePath)
+	err = utils.DownloadArchive(nvm_night_url, archivePath)
 	if err != nil {
 		return fmt.Errorf("failed to download Neovim: %w", err)
 	}
@@ -144,44 +142,4 @@ func isVersionInstalled(nodeId string) bool {
 		}
 	}
 	return false
-}
-
-func createTargetDirectory(createdAt string) (string, error) {
-	t, err := time.Parse(time.RFC3339, createdAt)
-	if err != nil {
-		return "", err
-	}
-
-	// FIX: fix this
-	formattedDate := t.Format("2006-01-02")
-	targetDir := filepath.Join(targetDirNightly, formattedDate)
-
-	err = os.MkdirAll(targetDir, 0755)
-	if err != nil {
-		return "", err
-	}
-
-	return targetDir, nil
-}
-
-// TODO: Move to utils/fileutils.go
-func downloadArchive(url, filePath string) error {
-	resp, err := http.Get(url)
-	if err != nil {
-		return fmt.Errorf("failed to download file: %w", err)
-	}
-	defer resp.Body.Close()
-
-	outFile, err := os.Create(filePath)
-	if err != nil {
-		return fmt.Errorf("failed to create output file: %w", err)
-	}
-	defer outFile.Close()
-
-	_, err = io.Copy(outFile, resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to save file: %w", err)
-	}
-
-	return nil
 }
