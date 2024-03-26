@@ -65,7 +65,7 @@ func ListHandler(cmd *cobra.Command, args []string) {
 	}
 }
 
-func listHandler(cmd *cobra.Command, args []string) { // Or no args if you want to list everything
+func ListHandlerLocal(cmd *cobra.Command, args []string) { // Or no args if you want to list everything
 	versions, err := utils.ReadVersionsInfo()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to read versions info:", err)
@@ -103,6 +103,10 @@ func listHandler(cmd *cobra.Command, args []string) { // Or no args if you want 
 	// Create the table
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"Version", "Status"})
-	table.AppendBulk(tableData)
+	// TODO: I'm not sure what I'm doing here
+	// maybe table.BulkAppend(tableData) but we need it as a []string
+	for _, row := range tableData {
+		table.Append([]string{row.Version, row.Status})
+	}
 	table.Render()
 }
