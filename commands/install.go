@@ -2,12 +2,9 @@ package commands
 
 import (
 	"fmt"
-	"io"
-	"net/http"
+	"nvm_manager_go/utils"
 	"os"
 	"path/filepath"
-
-	"github.com/charmbracelet/bubbles/progress"
 )
 
 var (
@@ -16,7 +13,7 @@ var (
 	neovimURL       = "https://github.com/neovim/neovim/releases/download/nightly/nvim-macos.tar.gz"
 	targetNightly   = filepath.Join(homeDir, ".local", "share", "nv_manager", "nightly")
 	stableBaseURL   = "https://github.com/neovim/neovim/releases/download/v"
-	targetDirStable = filepath.Join(homeDir, ".local", "share", "nv_manager", "stable")
+	targetDirStable = filepath.Join(homeDir, ".local", "share", "nv_manager", "stable/")
 	tagsURL         = "https://api.github.com/repos/neovim/neovim/tags"
 	versionFilePath = filepath.Join(targetNightly, "versions_info.json")
 	nvm_night_url   = "https://github.com/neovim/neovim/releases/download/nightly/nvim-macos.tar.gz"
@@ -24,7 +21,7 @@ var (
 
 func InstallSpecificStable(version string) error {
 	stableURL := stableBaseURL + version + "/nvim-macos.tar.gz"
-	targetDir := targetDirStable + version + "/"
+	targetDir := filepath.Join(targetNightly, version)
 
 	// Create the target directory
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
@@ -32,47 +29,19 @@ func InstallSpecificStable(version string) error {
 	}
 
 	// Download the Neovim archive
-	resp, err := http.Get(stableURL)
-	if err != nil {
+	archivePath := filepath.Join(targetDir, "nvim-macos.tar.gz")
+	if err := utils.DownloadArchive(stableURL, archivePath); err != nil {
 		return fmt.Errorf("failed to download Neovim: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Initialize progress bar
-	progress := progress.New(progress.WithDefaultGradient())
-	err = progress.Start()
-	if err != nil {
-		return fmt.Errorf("failed to initialize progress bar: %w", err)
-	}
-
-	// Save the downloaded file & track progress
-	file, err := os.Create(filepath.Join(targetDir, "nvim-macos.tar.gz"))
-	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
-	}
-	defer file.Close()
-
-	reader := progress.WrapReader(resp.Body) // Track download progress
-	_, err = io.Copy(file, reader)
-	if err != nil {
-		return fmt.Errorf("failed to save Neovim archive: %w", err)
-	}
-
-	// Complete the progress bar
-	err = progress.Full()
-	if err != nil {
-		return fmt.Errorf("failed to complete progress bar: %w", err)
 	}
 
 	// Extract the archive
-	extractCommand := fmt.Sprintf("tar xzvf %s -C %s", filepath.Join(targetDir, "nvim-macos.tar.gz"), targetDir)
-	result, err := executeCommand(extractCommand) //  need a helper function for this
-	if err != nil || result.ExitCode != 0 {
-		return fmt.Errorf("failed to extract Neovim: %v", result.Output)
+	err := utils.ExtractTarGz(archivePath, targetDir)
+	if err != nil {
+		return fmt.Errorf("failed to extract Neovim: %w", err)
 	}
 
 	// Remove the downloaded archive
-	err = os.Remove(filepath.Join(targetDir, "nvim-macos.tar.gz"))
+	err = os.Remove(archivePath)
 	if err != nil {
 		fmt.Println("Warning (non-fatal): Failed to remove Neovim archive:", err)
 	}
