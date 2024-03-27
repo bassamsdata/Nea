@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -103,7 +104,7 @@ func DetermineCurrentVersion() (string, error) {
 
 // read nightly versions info
 func ReadVersionsInfo() ([]VersionInfo, error) {
-	versionsFilePath := targetDirNightly + "versions_info.json" // Use your actual path
+	versionsFilePath := targetDirNightly + "versions_info.json"
 
 	// Read the file contents
 	data, err := os.ReadFile(versionsFilePath)
@@ -117,6 +118,12 @@ func ReadVersionsInfo() ([]VersionInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse versions info JSON: %w", err)
 	}
+	// Sort versions in descending order by CreatedAt
+	slices.SortFunc(versions, func(a, b VersionInfo) int {
+		timeA, _ := time.Parse(time.RFC3339, a.CreatedAt)
+		timeB, _ := time.Parse(time.RFC3339, b.CreatedAt)
+		return timeB.Compare(timeA) // NOTE: DESC order
+	})
 
 	return versions, nil
 }
@@ -127,7 +134,6 @@ func CreateTargetDirectory(createdAt string) (string, error) {
 		return "", err
 	}
 
-	// FIX: fix this
 	formattedDate := t.Format("2006-01-02")
 	targetDir := filepath.Join(targetDirNightly, formattedDate)
 
