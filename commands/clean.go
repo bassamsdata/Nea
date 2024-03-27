@@ -14,13 +14,6 @@ var (
 	versionsFilePath = targetDirNightly + "versions_info.json" // Use your actual path
 )
 
-type VersionInfo struct {
-	NodeID       string `json:"node_id"`
-	CreatedAt    string `json:"created_at"`
-	Directory    string `json:"directory"`
-	UniqueNumber int    `json:"unique_number"`
-}
-
 func clean(target string, options []string) error {
 	// TODO: can we do it like `switch target` in Go?
 	switch {
@@ -104,7 +97,7 @@ func cleanAllNightly() error {
 	}
 
 	// Clear and update JSON
-	versions = []VersionInfo{} // Empty the slice
+	versions = versions[:0] // Empty the slice
 	updatedJson, err := json.Marshal(versions)
 	if err != nil {
 		return fmt.Errorf("failed to marshal updated versions: %w", err)
@@ -129,7 +122,7 @@ func cleanAllStable() error {
 }
 
 // Helper to locate a nightly version by creation date
-func findNightlyVersion(versions []VersionInfo, dateStr string) (int, bool) {
+func findNightlyVersion(versions []utils.VersionInfo, dateStr string) (int, bool) {
 	for i, version := range versions {
 		if version.Directory == dateStr {
 			return i, true

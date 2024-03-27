@@ -85,7 +85,7 @@ func updateVersionsInfo(latestRelease Release, targetDir string) error {
 	}
 
 	// Create the new VersionInfo
-	newVersion := VersionInfo{
+	newVersion := utils.VersionInfo{
 		NodeID:       latestRelease.NodeId,
 		CreatedAt:    latestRelease.CreatedAt,
 		Directory:    targetDir,

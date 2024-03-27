@@ -5,6 +5,8 @@ import (
 	"nvm_manager_go/utils"
 	"os"
 	"path/filepath"
+
+	"github.com/fatih/color"
 )
 
 var (
@@ -51,7 +53,7 @@ func InstallSpecificStable(version string) error {
 	if err != nil {
 		return fmt.Errorf("failed to switch to version %s: %w", version, err)
 	}
-
-	fmt.Printf("Neovim version %s installed successfully!\n", version)
+	green := color.New(color.FgGreen).PrintfFunc()
+	green("Neovim version %s installed successfully!\n", version)
 	return nil
 }
