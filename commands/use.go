@@ -5,6 +5,7 @@ import (
 	"nvm_manager_go/utils"
 	"os"
 	"path/filepath"
+	"sort"
 )
 
 func useVersion(version string) error {
@@ -12,18 +13,19 @@ func useVersion(version string) error {
 
 	var neovimBinary string
 
-	// build file path for latest installed nightly version
 	if version == "nightly" {
 		// TODO: Move it to its own function
-		nightlyVersions, _ := utils.ReadVersionsInfo()
-		if len(nightlyVersions) > 0 {
-			VersionCreatedAt := nightlyVersions[0].CreatedAt
-			neovimBinary = filepath.Join(targetDirNightly, VersionCreatedAt) + "/nvim-macos/bin/nvim"
+		versions, _ := utils.ReadVersionsInfo()
+		sort.Slice(versions, func(i, j int) bool {
+			return versions[i].CreatedAt > versions[j].CreatedAt
+		})
+		if len(versions) > 0 {
+			neovimBinary = versions[0].Directory
 		} else {
 			return fmt.Errorf("no nightly versions installed")
 		}
 	} else {
-		// Build the path for the stable version
+		// Build the path for the specific version
 		neovimBinary = filepath.Join(targetDirStable, version) + "/nvim-macos/bin/nvim"
 	}
 
