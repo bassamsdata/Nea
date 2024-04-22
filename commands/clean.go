@@ -131,7 +131,7 @@ func findNightlyVersion(versions []utils.VersionInfo, dateStr string) (int, bool
 	return -1, false // Not found
 }
 
-func cleanSpecificNightly(target string) error {
+func cleanSpecificNightly(target string) error { // target is a date like 2022-12-07
 	versions, err := utils.ReadVersionsInfo()
 	if err != nil {
 		return fmt.Errorf("failed to read versions info: %w", err)
@@ -145,12 +145,13 @@ func cleanSpecificNightly(target string) error {
 
 	// Delete the directory
 	versionDir := versions[index].Directory
-	err = os.RemoveAll(versionDir) // Error checking
+	err = os.RemoveAll(versionDir)
 	if err != nil {
 		return err
 	}
 
-	// Update versions slice
+	// FIX: use the UpdateVersionsInfo function
+	// or not?
 	versions = append(versions[:index], versions[index+1:]...)
 
 	// Update  versions_info.json

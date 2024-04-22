@@ -22,7 +22,7 @@ var (
 )
 
 func InstallSpecificStable(version string) error {
-	stableURL := stableBaseURL + version + "/nvim-macos.tar.gz"
+	stableURL := utils.StableBaseURL + version + "/nvim-macos.tar.gz"
 	targetDir := filepath.Join(targetNightly, version)
 
 	// Create the target directory
@@ -48,8 +48,7 @@ func InstallSpecificStable(version string) error {
 		fmt.Println("Warning (non-fatal): Failed to remove Neovim archive:", err)
 	}
 
-	// Call your use_version function
-	err = useVersion(version)
+	err = useVersion(version, nil)
 	if err != nil {
 		return fmt.Errorf("failed to switch to version %s: %w", version, err)
 	}

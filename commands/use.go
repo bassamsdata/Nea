@@ -5,24 +5,23 @@ import (
 	"nvm_manager_go/utils"
 	"os"
 	"path/filepath"
-	"sort"
 )
 
-func useVersion(version string) error {
+func useVersion(version string, optionalDir *string) error {
 	symlinkPath := "/usr/local/bin/nvim"
 
 	var neovimBinary string
-
 	if version == "nightly" {
-		// TODO: Move it to its own function
-		versions, _ := utils.ReadVersionsInfo()
-		sort.Slice(versions, func(i, j int) bool {
-			return versions[i].CreatedAt > versions[j].CreatedAt
-		})
-		if len(versions) > 0 {
-			neovimBinary = versions[0].Directory
-		} else {
-			return fmt.Errorf("no nightly versions installed")
+		switch {
+		case optionalDir != nil:
+			neovimBinary = *optionalDir
+		default:
+			versions, _ := utils.ReadVersionsInfo() // already sorted
+			if len(versions) > 0 {
+				neovimBinary = versions[0].Directory
+			} else {
+				return fmt.Errorf("no nightly versions installed")
+			}
 		}
 	} else {
 		// Build the path for the specific version
@@ -41,6 +40,8 @@ func useVersion(version string) error {
 		return fmt.Errorf("failed to create symlink: %w", err)
 	}
 
-	fmt.Printf("Currently using Neovim version %s\n", version)
+	// TODO: use another function for use, keep this as a helper function
+	// so no need to print any message
+	// fmt.Printf("Currently using Neovim version %s\n", version)
 	return nil
 }
