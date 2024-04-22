@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"slices"
+	"sort"
 	"strings"
 	"time"
 )
@@ -37,6 +37,10 @@ type VersionInfo struct {
 // Struct to represent release info
 type Release struct {
 	Name string `json:"name"`
+}
+
+type Config struct {
+	RollbackLimit int `json:"rollbackLimit"`
 }
 
 // TODO: add number of releases
@@ -103,6 +107,19 @@ func DetermineCurrentVersion() (string, error) {
 	return "", fmt.Errorf("failed to parse version from symlink target")
 }
 
+// TODO: make CreatedAt a Time so we can do this sort
+//
+//	sort.Slice(versions, func(i, j int) bool {
+//		return versions[i].CreatedAt > versions[j].CreatedAt
+//	})
+func SortVersionsDesc(versions []VersionInfo) {
+	sort.Slice(versions, func(i, j int) bool {
+		timeA, _ := time.Parse(time.RFC3339, versions[i].CreatedAt)
+		timeB, _ := time.Parse(time.RFC3339, versions[j].CreatedAt)
+		return timeA.After(timeB)
+	})
+}
+
 // read nightly versions info
 func ReadVersionsInfo() ([]VersionInfo, error) {
 	versionsFilePath := targetDirNightly + "versions_info.json"
@@ -119,13 +136,8 @@ func ReadVersionsInfo() ([]VersionInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse versions info JSON: %w", err)
 	}
-	// Sort versions in descending order by CreatedAt
-	slices.SortFunc(versions, func(a, b VersionInfo) int {
-		timeA, _ := time.Parse(time.RFC3339, a.CreatedAt)
-		timeB, _ := time.Parse(time.RFC3339, b.CreatedAt)
-		return timeB.Compare(timeA) // NOTE: DESC order
-	})
 
+	SortVersionsDesc(versions)
 	return versions, nil
 }
 
@@ -210,6 +222,33 @@ func ExtractTarGz(filePath, targetDir string) error {
 	}
 	if err != io.EOF {
 		return fmt.Errorf("error reading archive: %w", err)
+	}
+	return nil
+}
+
+func ReadConfig() (config Config, err error) {
+	configFile, err := os.ReadFile(configPath)
+	if err != nil {
+		return config, err
+	}
+
+	err = json.Unmarshal(configFile, &config)
+	return config, err
+
+}
+
+// CreateConfigFile creates a config file with default values if it only doesn't exist.
+func CreateConfigFile() error {
+	if _, err := os.Stat(configPath); err == nil {
+		return nil
+	}
+	defaultConfig := Config{RollbackLimit: 7}
+	configJson, err := json.MarshalIndent(defaultConfig, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to serialize config: %w", err)
+	}
+	if err := os.WriteFile(configPath, configJson, 0644); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
 	}
 	return nil
 }
