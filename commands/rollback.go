@@ -1,1 +1,58 @@
 package commands
+
+import (
+	"fmt"
+	"nvm_manager_go/utils"
+	"os"
+	"path/filepath"
+)
+
+// either use int number or date
+func RollbackVersion(rollbackStep int) error {
+	symlinkPath := "/usr/local/bin/nvim"
+	var neovimBinary string
+
+	// 1. Read versions_info.json
+	versionsInfo, err := utils.ReadVersionsInfo()
+	if err != nil {
+		return fmt.Errorf("failed to read versions info: %w", err)
+	}
+
+	// 2. Check if rollbackStep is valid
+	if rollbackStep < 1 {
+		return fmt.Errorf("rollback steps must be at least 1")
+	}
+
+	// 3. Check if rollbackStep is valid
+	if rollbackStep >= len(versionsInfo) {
+		return fmt.Errorf("cannot rollback %d versions, not enough versions installed", rollbackStep)
+	}
+
+	// 4. Get the version to rollback to
+	rollbackTarget := versionsInfo[rollbackStep]
+
+	// 5. detect filename of the archive
+	binaryNameArch, err := getArchiveFilename()
+	if err != nil {
+		return fmt.Errorf("failed to get filename: %w", err)
+	}
+
+	// why not using usevwrsion function
+	// 5. Use the version
+	neovimBinary = filepath.Join(rollbackTarget.Directory, binaryNameArch) + "/bin/nvim"
+	if _, err := os.Stat(neovimBinary); err != nil {
+		return fmt.Errorf("version %s is not installed: %w", rollbackTarget.CreatedAt, err)
+	}
+	if err := os.Remove(symlinkPath); err != nil {
+		return fmt.Errorf("failed to remove existing symlink: %w", err)
+	}
+	if err := os.Symlink(neovimBinary, symlinkPath); err != nil {
+		return fmt.Errorf("failed to create symlink: %w", err)
+	}
+
+	return nil
+}
+
+func removeNightlyversion() error {
+	return nil
+}
