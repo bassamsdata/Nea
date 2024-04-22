@@ -7,6 +7,7 @@ import (
 	"nvm_manager_go/utils"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/fatih/color"
 )
@@ -14,10 +15,15 @@ import (
 type Release struct {
 	NodeId    string `json:"node_id"`
 	CreatedAt string `json:"created_at"`
-	// Other release fields if you need them
 }
 
 func installNightly() error {
+	// 0.get system and arch for file name and stop if os is not supported
+	filename, err := getArchiveFilename()
+	if err != nil {
+		return err
+	}
+
 	// 1. Fetch Release Information
 	latestRelease, err := fetchLatestNightlyRelease()
 	if err != nil {
@@ -27,6 +33,7 @@ func installNightly() error {
 	// 2. Check if Already Installed
 	if isVersionInstalled(latestRelease.NodeId) {
 		color.Yellow("The latest nightly version is already installed.")
+		color.Yellow("Use 'nvm use nightly' to switch to it.")
 		return nil
 	}
 
@@ -37,11 +44,12 @@ func installNightly() error {
 	}
 
 	// 4. Download Archive
-	archivePath := filepath.Join(targetDir, "nvim-macos.tar.gz")
+	archivePath := filepath.Join(targetDir, filename)
 	err = utils.DownloadArchive(nvm_night_url, archivePath)
 	if err != nil {
 		return fmt.Errorf("failed to download Neovim: %w", err)
 	}
+	// SUG: we can change dir name here to nvim-macos
 
 	// 5. Extract Archive
 	err = utils.ExtractTarGz(archivePath, targetDir)
@@ -55,15 +63,47 @@ func installNightly() error {
 		fmt.Println("Warning: failed to remove archive:", err)
 	}
 
-	// 7. Update versions_info.json
+	// 7. Create config file
+	err = utils.CreateConfigFile()
+	if err != nil {
+		return fmt.Errorf("failed to create config file: %w", err)
+	}
+
+	// 8. Update versions_info.json
 	err = updateVersionsInfo(latestRelease, targetDir)
 	if err != nil {
 		return fmt.Errorf("failed to update versions info: %w", err)
 	}
 
-	// 8. Success message
+	// 9. Call useVersion function
+	err = useVersion("nightly", &targetDir)
+	if err != nil {
+		return fmt.Errorf("failed to use nightly version: %w", err)
+	}
+
+	// 10. Success message
 	color.Green("Neovim nightly installed successfully!")
+	color.Green("and you are using Neovim nightly created on %s", latestRelease.CreatedAt)
 	return nil
+}
+
+// NOTE: this is just for nightly veriosn currently
+func getArchiveFilename() (string, error) {
+	os := runtime.GOOS
+	arch := runtime.GOARCH
+
+	if os != "darwin" {
+		return "", fmt.Errorf("unsupported operating system: %s. currently only support macOS but PR is welcome", os)
+	}
+
+	switch arch {
+	case "amd64":
+		return "nvim-macos-x86_64.tar.gz", nil
+	case "arm64":
+		return "nvim-macos-arm64.tar.gz", nil
+	default:
+		return "", fmt.Errorf("unsupported architecture: %s", arch)
+	}
 }
 
 func updateVersionsInfo(latestRelease Release, targetDir string) error {
@@ -72,15 +112,23 @@ func updateVersionsInfo(latestRelease Release, targetDir string) error {
 		return fmt.Errorf("failed to read versions info: %w", err)
 	}
 
-	// Add logic to remove oldest versions if count is >= 3
-	if len(versionsInfo) >= 3 {
-		// Remove oldest version entry from versionsInfo slice
-		versionsInfo = versionsInfo[1:]
+	// Read the version limit from the config file
+	config, err := utils.ReadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to read config: %w", err)
+	}
 
-		// TODO: I'm not sure but we should sort here probably
-		// Renumber the remaining entries
-		for i := range versionsInfo {
-			versionsInfo[i].UniqueNumber = i + 1
+	// Check if the number of versions exceeds the limit
+	if len(versionsInfo) >= config.RollbackLimit {
+		// Remove the oldest version -- we don't need to sort since ReadVersionsInfo already does that
+		oldestVersion := versionsInfo[len(versionsInfo)-1]
+		versionsInfo = versionsInfo[:len(versionsInfo)-1]
+
+		// Delete the corresponding directory
+		// FIX: here is something wrong, it should use the oldestVersion.targetDir
+		dirToDelete := filepath.Join(targetDir, oldestVersion.CreatedAt[:10])
+		if err := os.RemoveAll(dirToDelete); err != nil {
+			return fmt.Errorf("failed to delete directory: %w", err)
 		}
 	}
 
@@ -89,11 +137,18 @@ func updateVersionsInfo(latestRelease Release, targetDir string) error {
 		NodeID:       latestRelease.NodeId,
 		CreatedAt:    latestRelease.CreatedAt,
 		Directory:    targetDir,
-		UniqueNumber: len(versionsInfo) + 1,
+		UniqueNumber: 0,
 	}
 
 	// Append the new entry to the slice
 	versionsInfo = append(versionsInfo, newVersion)
+
+	utils.SortVersionsDesc(versionsInfo)
+
+	// re-assign unique number
+	for i := range versionsInfo {
+		versionsInfo[i].UniqueNumber = i
+	}
 
 	// Marshal back into JSON
 	updatedJson, err := json.Marshal(versionsInfo)
@@ -102,7 +157,6 @@ func updateVersionsInfo(latestRelease Release, targetDir string) error {
 	}
 
 	// Write to versions_info.json
-	// TODO: I'm not sure if this is the path
 	err = os.WriteFile(versionFilePath, updatedJson, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write versions info: %w", err)
