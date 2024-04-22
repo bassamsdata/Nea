@@ -11,12 +11,12 @@ import (
 
 var (
 	homeDir          = os.Getenv("HOME")
-	appDir           = filepath.Join(homeDir, ".local", "share", "nv_manager")
+	appDir           = filepath.Join(homeDir, ".local", "share", "neoManager")
 	neovimURL        = "https://github.com/neovim/neovim/releases/download/nightly/nvim-macos.tar.gz"
-	targetNightly    = filepath.Join(homeDir, ".local", "share", "nv_manager", "nightly")
+	targetNightly    = filepath.Join(homeDir, ".local", "share", "neoManager", "nightly")
 	stableBaseURL    = "https://github.com/neovim/neovim/releases/download/v"
-	targetDirNightly = filepath.Join(homeDir, ".local", "share", "nv_manager", "nightly")
-	targetDirStable  = filepath.Join(homeDir, ".local", "share", "nv_manager", "stable")
+	targetDirNightly = filepath.Join(homeDir, ".local", "share", "neoManager", "nightly")
+	targetDirStable  = filepath.Join(homeDir, ".local", "share", "neoManager", "stable")
 	tagsURL          = "https://api.github.com/repos/neovim/neovim/tags"
 	tagsNightlyURL   = "https://api.github.com/repos/neovim/neovim/releases/tags/nightly"
 )

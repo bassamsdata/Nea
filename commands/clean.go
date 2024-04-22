@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	targetDirNightly = filepath.Join(homeDir, ".local", "share", "nv_manager", "nightly")
+	targetDirNightly = filepath.Join(homeDir, ".local", "share", "neoManager", "nightly")
 	versionsFilePath = targetDirNightly + "versions_info.json" // Use your actual path
 )
 
