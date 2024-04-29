@@ -18,7 +18,7 @@ func useVersion(version string, optionalDir *string) error {
 		default:
 			versions, _ := utils.ReadVersionsInfo() // already sorted
 			if len(versions) > 0 {
-				neovimBinary = versions[0].Directory
+				neovimBinary = versions[0].Directory // use the latest nightly, always has 0 index
 			} else {
 				return fmt.Errorf("no nightly versions installed")
 			}
