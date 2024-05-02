@@ -45,7 +45,8 @@ func installNightly() error {
 
 	// 4. Download Archive
 	archivePath := filepath.Join(targetDir, filename)
-	err = utils.DownloadArchive(nvm_night_url, archivePath)
+	buildURL := nvm_night_url + "/" + filename
+	err = utils.DownloadArchive(buildURL, archivePath)
 	if err != nil {
 		return fmt.Errorf("failed to download Neovim: %w", err)
 	}
@@ -63,12 +64,6 @@ func installNightly() error {
 		fmt.Println("Warning: failed to remove archive:", err)
 	}
 
-	// 7. Create config file
-	err = utils.CreateConfigFile()
-	if err != nil {
-		return fmt.Errorf("failed to create config file: %w", err)
-	}
-
 	// 8. Update versions_info.json
 	err = updateVersionsInfo(latestRelease, targetDir)
 	if err != nil {
@@ -76,7 +71,7 @@ func installNightly() error {
 	}
 
 	// 9. Call useVersion function
-	err = useVersion("nightly", &targetDir)
+	err = useVersion("nightly", nil)
 	if err != nil {
 		return fmt.Errorf("failed to use nightly version: %w", err)
 	}

@@ -13,12 +13,21 @@ func useVersion(version string, optionalDir *string) error {
 	var neovimBinary string
 	if version == "nightly" {
 		switch {
+		// TODO: I'm not sure why I did this, it's creating a bug where the
+		// symlink won't work in install nightly
 		case optionalDir != nil:
 			neovimBinary = *optionalDir
 		default:
 			versions, _ := utils.ReadVersionsInfo() // already sorted
 			if len(versions) > 0 {
-				neovimBinary = versions[0].Directory // use the latest nightly, always has 0 index
+				// Get the archive filename based on the current architecture
+				archiveFilename, err := getArchiveFilename()
+				if err != nil {
+					return fmt.Errorf("failed to determine archive filename: %w", err)
+				}
+				// Extract the directory name from the archive filename
+				dirName := strings.TrimSuffix(archiveFilename, ".tar.gz")
+				neovimBinary = filepath.Join(versions[0].Directory, dirName, "bin/nvim")
 			} else {
 				return fmt.Errorf("no nightly versions installed")
 			}
