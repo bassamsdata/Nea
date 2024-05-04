@@ -20,6 +20,42 @@ var (
 	versionFilePath = filepath.Join(targetNightly, "versions_info.json")
 	nvm_night_url   = "https://github.com/neovim/neovim/releases/download/nightly/nvim-macos.tar.gz"
 )
+var InstallCmd = &cobra.Command{
+	Use:   "install",
+	Short: "Install a Neovim version",
+	Args:  cobra.ExactArgs(1),
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		utils.Setup()
+	},
+	Run: func(cmd *cobra.Command, args []string) {
+		var err error
+		switch args[0] {
+		case "nightly":
+			err = installNightly()
+			if err != nil {
+				fmt.Println("Failed to install nightly:", err)
+				return
+			}
+			// fmt.Println("You are now using the nightly version")
+
+		case "stable":
+			err = InstallSpecificStable("stable")
+			if err != nil {
+				fmt.Println("Failed to install latest stable:", err)
+				return
+			}
+			fmt.Println("You are now using the latest stable version")
+
+		default:
+			err = InstallSpecificStable(args[0])
+			if err != nil {
+				fmt.Println("Failed to install version", args[0], ":", err)
+				return
+			}
+			fmt.Println("Neovim version", args[0], "installed successfully")
+		}
+	},
+}
 
 func InstallSpecificStable(version string) error {
 	stableURL := utils.StableBaseURL + version + "/nvim-macos.tar.gz"

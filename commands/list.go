@@ -25,6 +25,23 @@ type VersionData struct {
 	Status  string
 }
 
+var ListCmd = &cobra.Command{
+	Use:   "ls",
+	Short: "List all Neovim versions",
+	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) == 0 {
+			fmt.Println("Error: You must specify local or remote")
+			return
+		}
+		switch args[0] {
+		case "local":
+			listHandlerLocal()
+		case "remote":
+			listHandler(args[1:])
+		}
+	},
+}
+
 // TODO: we can use the fetchreleases() function and then call a table
 func ListHandler(cmd *cobra.Command, args []string) {
 	numVersions := 7 // Default number of versions to list

@@ -7,6 +7,29 @@ import (
 	"path/filepath"
 )
 
+var RollbackCmd = &cobra.Command{
+	Use:   "rollback [steps]",
+	Short: "Rollback to a previous version",
+	Args:  cobra.ExactArgs(1), // Ensure exactly one argument is provided
+	Run: func(cmd *cobra.Command, args []string) {
+		// Parse the first argument as an integer
+		rollbackStep, err := strconv.Atoi(args[0])
+		if err != nil {
+			fmt.Println("Error: The argument must be a number")
+			return
+		}
+
+		// Call RollbackVersion with the parsed integer
+		err = RollbackVersion(rollbackStep)
+		if err != nil {
+			fmt.Println("Error:", err)
+			return
+		}
+
+		fmt.Println("Rollback successful")
+	},
+}
+
 // either use int number or date
 func RollbackVersion(rollbackStep int) error {
 	symlinkPath := "/usr/local/bin/nvim"
