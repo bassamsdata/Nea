@@ -5,6 +5,10 @@ import (
 	"nvm_manager_go/utils"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
+
+	"github.com/spf13/cobra"
 )
 
 var RollbackCmd = &cobra.Command{
@@ -43,7 +47,7 @@ func RollbackVersion(rollbackStep int) error {
 
 	// 2. Check if rollbackStep is valid
 	if rollbackStep < 1 {
-		return fmt.Errorf("rollback steps must be at least 1")
+		return fmt.Errorf("rollback steps must be at least 1. Or to use latest nightly version, use 'use nightly'")
 	}
 
 	// 3. Check if rollbackStep is valid
@@ -55,14 +59,15 @@ func RollbackVersion(rollbackStep int) error {
 	rollbackTarget := versionsInfo[rollbackStep]
 
 	// 5. detect filename of the archive
-	binaryNameArch, err := getArchiveFilename()
+	binaryNameArch, err := getArchiveFilename("nightly")
 	if err != nil {
 		return fmt.Errorf("failed to get filename: %w", err)
 	}
+	dirName := strings.TrimSuffix(binaryNameArch, ".tar.gz")
 
 	// why not using usevwrsion function
 	// 5. Use the version
-	neovimBinary = filepath.Join(rollbackTarget.Directory, binaryNameArch) + "/bin/nvim"
+	neovimBinary = filepath.Join(rollbackTarget.Directory, dirName) + "/bin/nvim"
 	if _, err := os.Stat(neovimBinary); err != nil {
 		return fmt.Errorf("version %s is not installed: %w", rollbackTarget.CreatedAt, err)
 	}

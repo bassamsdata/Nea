@@ -38,6 +38,7 @@ func main() {
 	rootCmd.AddCommand(commands.UseCmd)
 	rootCmd.AddCommand(commands.ListCmd)
 	rootCmd.AddCommand(commands.RollbackCmd)
+	rootCmd.AddCommand(commands.CleanCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)

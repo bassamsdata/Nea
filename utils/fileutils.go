@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -25,6 +26,7 @@ var (
 	targetDirStable  = filepath.Join(homeDir, ".local", "share", "neoManager", "stable")
 	tagsURL          = "https://api.github.com/repos/neovim/neovim/tags"
 	tagsNightlyURL   = "https://api.github.com/repos/neovim/neovim/releases/tags/nightly"
+	versionFilePath  = filepath.Join(targetNightly, "versions_info.json")
 )
 
 type VersionInfo struct {
@@ -45,7 +47,7 @@ type Config struct {
 
 // TODO: add number of releases
 // Fetch stable neovim releases
-func fetchReleases() ([]Release, error) {
+func FetchReleases() ([]Release, error) {
 	// 1. Make the HTTP Request
 	resp, err := http.Get(tagsURL)
 	if err != nil {
@@ -120,9 +122,43 @@ func SortVersionsDesc(versions []VersionInfo) {
 	})
 }
 
+func ResolveVersion(version string) (string, error) {
+	if strings.ToLower(version) == "stable" {
+		latestVersion, err := fetchLatestStable()
+		if err != nil {
+			return "", fmt.Errorf("failed to fetch latest stable version: %w", err)
+		}
+		return latestVersion, nil
+	}
+	return version, nil
+}
+
+func fetchLatestStable() (string, error) {
+	releases, err := FetchReleases()
+	if err != nil {
+		return "", err
+	}
+
+	if len(releases) == 0 {
+		return "", fmt.Errorf("no releases found")
+	}
+
+	// Extract the numeric part of the version name
+	re := regexp.MustCompile("[0-9]+")
+	versionParts := re.FindAllString(releases[0].Name, -1)
+	if len(versionParts) == 0 {
+		return "", fmt.Errorf("failed to extract version number")
+	}
+
+	// Combine the numeric parts to form the version number
+	versionNumber := strings.Join(versionParts, ".")
+
+	return versionNumber, nil
+}
+
 // read nightly versions info
 func ReadVersionsInfo() ([]VersionInfo, error) {
-	versionsFilePath := targetDirNightly + "versions_info.json"
+	versionsFilePath := filepath.Join(targetNightly, "versions_info.json")
 
 	// Read the file contents
 	data, err := os.ReadFile(versionsFilePath)
@@ -158,7 +194,6 @@ func CreateTargetDirectory(createdAt string) (string, error) {
 	return targetDir, nil
 }
 
-// TODO: Move to utils/fileutils.go
 func DownloadArchive(url, filePath string) error {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -195,26 +230,43 @@ func ExtractTarGz(filePath, targetDir string) error {
 	defer gzipReader.Close()
 
 	tarReader := tar.NewReader(gzipReader)
+	var header *tar.Header
 
-	for header, err := tarReader.Next(); err == nil; header, err = tarReader.Next() {
+	var rootDir string
+	for {
+		header, err = tarReader.Next()
+		if err != nil {
+			break
+		}
 		targetPath := filepath.Join(targetDir, header.Name)
 
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := os.MkdirAll(targetPath, 0755); err != nil {
+			if err = os.MkdirAll(targetPath, 0755); err != nil {
 				return fmt.Errorf("failed to create directory: %w", err)
 			}
+			// FIX: why did I add this here, it's useless
+			if rootDir == "" {
+				rootDir = header.Name
+			}
 		case tar.TypeReg:
-			outFile, err := os.Create(targetPath)
+			var outFile *os.File
+			outFile, err = os.Create(targetPath)
 			if err != nil {
 				return fmt.Errorf("failed to create target file: %w", err)
 			}
-			if _, err := io.Copy(outFile, tarReader); err != nil {
+			if _, err = io.Copy(outFile, tarReader); err != nil {
 				outFile.Close() // Close on error
 				return fmt.Errorf("failed to extract file: %w", err)
 			}
-			if err := outFile.Close(); err != nil {
+			if err = outFile.Close(); err != nil {
 				return fmt.Errorf("failed to close file: %w", err)
+			}
+			// Check if the extracted file is the nvim binary and set executable permission
+			if strings.HasSuffix(targetPath, "bin/nvim") {
+				if err = os.Chmod(targetPath, 0755); err != nil {
+					return fmt.Errorf("failed to set executable permission: %w", err)
+				}
 			}
 		default:
 			return fmt.Errorf("unknown type: %b in %s", header.Typeflag, header.Name)
@@ -237,18 +289,14 @@ func ReadConfig() (config Config, err error) {
 
 }
 
-// CreateConfigFile creates a config file with default values if it only doesn't exist.
-func CreateConfigFile() error {
-	if _, err := os.Stat(configPath); err == nil {
-		return nil
+func formatDate(createdAt string) string {
+	if createdAt != "" {
+		t, err := time.Parse(time.RFC3339, createdAt)
+		if err != nil {
+			fmt.Println("Error parsing date:", err) // Or use a logging library
+			return "N/A"
+		}
+		return t.Format("2006-01-02")
 	}
-	defaultConfig := Config{RollbackLimit: 7}
-	configJson, err := json.MarshalIndent(defaultConfig, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to serialize config: %w", err)
-	}
-	if err := os.WriteFile(configPath, configJson, 0644); err != nil {
-		return fmt.Errorf("failed to write config file: %w", err)
-	}
-	return nil
+	return ""
 }
