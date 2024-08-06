@@ -5,8 +5,10 @@ import (
 	"nvm_manager_go/utils"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/fatih/color"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -18,8 +20,9 @@ var (
 	targetDirStable = filepath.Join(homeDir, ".local", "share", "neoManager", "stable/")
 	tagsURL         = "https://api.github.com/repos/neovim/neovim/tags"
 	versionFilePath = filepath.Join(targetNightly, "versions_info.json")
-	nvm_night_url   = "https://github.com/neovim/neovim/releases/download/nightly/nvim-macos.tar.gz"
+	nvm_night_url   = "https://github.com/neovim/neovim/releases/download/nightly/"
 )
+
 var InstallCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Install a Neovim version",
@@ -52,33 +55,53 @@ var InstallCmd = &cobra.Command{
 				fmt.Println("Failed to install version", args[0], ":", err)
 				return
 			}
-			fmt.Println("Neovim version", args[0], "installed successfully")
 		}
 	},
 }
 
 func InstallSpecificStable(version string) error {
-	stableURL := utils.StableBaseURL + version + "/nvim-macos.tar.gz"
-	targetDir := filepath.Join(targetNightly, version)
+	startTime := time.Now()
+	defer func() { fmt.Printf("Total execution time: %v\n", time.Since(startTime)) }()
 
-	// Create the target directory
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
+	// if version is stable -> get the version no
+	version, err := utils.ResolveVersion(version)
+	if err != nil {
+		return err
+	}
+
+	targetDir := filepath.Join(targetDirStable, version)
+	_, err = os.Stat(targetDir)
+	if err == nil || !os.IsNotExist(err) {
+		fmt.Println("Version", version, "is already installed.")
+		return nil
+	}
+
+	// Determine the correct archive filename based on the version
+	archiveFilename, err := getArchiveFilename(version)
+	if err != nil {
+		return fmt.Errorf("failed to determine archive filename: %w", err)
+	}
+
+	stableURL := utils.StableBaseURL + version + "/" + archiveFilename
+
+	// 1. Create the target directory
+	if err = os.MkdirAll(targetDir, 0755); err != nil {
 		return fmt.Errorf("failed to create target directory: %w", err)
 	}
 
-	// Download the Neovim archive
-	archivePath := filepath.Join(targetDir, "nvim-macos.tar.gz")
-	if err := utils.DownloadArchive(stableURL, archivePath); err != nil {
+	// 2. Download the Neovim archive
+	archivePath := filepath.Join(targetDir, archiveFilename)
+	if err = utils.DownloadArchive(stableURL, archivePath); err != nil {
 		return fmt.Errorf("failed to download Neovim: %w", err)
 	}
 
-	// Extract the archive
-	err := utils.ExtractTarGz(archivePath, targetDir)
+	// 3. Extract the archive
+	err = utils.ExtractTarGz(archivePath, targetDir)
 	if err != nil {
 		return fmt.Errorf("failed to extract Neovim: %w", err)
 	}
 
-	// Remove the downloaded archive
+	// 4. Remove the downloaded archive
 	err = os.Remove(archivePath)
 	if err != nil {
 		fmt.Println("Warning (non-fatal): Failed to remove Neovim archive:", err)
@@ -88,7 +111,7 @@ func InstallSpecificStable(version string) error {
 	if err != nil {
 		return fmt.Errorf("failed to switch to version %s: %w", version, err)
 	}
-	green := color.New(color.FgGreen).PrintfFunc()
+	green := color.New(color.FgCyan).PrintfFunc()
 	green("Neovim version %s installed successfully!\n", version)
 	return nil
 }
