@@ -43,7 +43,7 @@ var ListCmd = &cobra.Command{
 }
 
 // TODO: we can use the fetchreleases() function and then call a table
-func ListHandler(cmd *cobra.Command, args []string) {
+func listHandler(args []string) {
 	numVersions := 7 // Default number of versions to list
 
 	if len(args) >= 1 {
@@ -51,7 +51,7 @@ func ListHandler(cmd *cobra.Command, args []string) {
 		if err == nil {
 			numVersions = requestedVersions
 		} else {
-			fmt.Fprintln(os.Stderr, "Invalid argument. Using default number of versions.")
+			fmt.Fprintln(os.Stderr, "no argument. Using default number of versions which is 7")
 		}
 	}
 	resp, err := http.Get("https://api.github.com/repos/neovim/neovim/tags")
@@ -82,48 +82,55 @@ func ListHandler(cmd *cobra.Command, args []string) {
 	}
 }
 
-func ListHandlerLocal(cmd *cobra.Command, args []string) { // Or no args if you want to list everything
+// BUG: if we cleaned stable we can't run this command
+func listHandlerLocal() {
 	versions, err := utils.ReadVersionsInfo()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to read versions info:", err)
 		return
 	}
 
-	// Determine the current version
 	currentVersion, err := utils.DetermineCurrentVersion()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to determine current version:", err)
 		return
 	}
 
-	// Prepare data for the table
-	var tableData []VersionData
+	tableString := &strings.Builder{}
+	table := tablewriter.NewWriter(tableString)
+	table.SetHeader([]string{"Version", "Created At", "Rollback Step", "Status"})
+
+	// Read the stable versions from the directory
+	stableVersions, err := os.ReadDir(targetDirStable)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Warning: Failed to read stable versions directory:", err)
+	} else {
+		for _, version := range stableVersions {
+			versionName := version.Name()
+			status := "stable"
+			if versionName == currentVersion {
+				status = "used"
+			}
+			table.Append([]string{versionName, "", "N/A", status})
+		}
+	}
+
 	for _, version := range versions {
 		status := "installed"
-		if strings.HasPrefix(version.Directory, "nightly") {
-			if version.Directory == currentVersion {
-				status = "used"
-			} else {
-				// Display the creation date
-				t, err := time.Parse(time.RFC3339, version.CreatedAt)
-				if err == nil {
-					status = t.Format("2006-01-02")
-				}
-			}
-		} else if version.Directory == currentVersion { // Stable version
+		createdAt := ""
+		versionName := "nightly"
+		t, err := time.Parse(time.RFC3339, version.CreatedAt)
+		if err == nil {
+			createdAt = t.Format("2006-01-02")
+		}
+		if strings.Contains(version.Directory, currentVersion) {
 			status = "used"
 		}
 
-		tableData = append(tableData, VersionData{Version: version.Directory, Status: status})
+		table.Append([]string{versionName, createdAt, fmt.Sprint(version.UniqueNumber), status})
 	}
 
-	// Create the table
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Version", "Status"})
-	// TODO: I'm not sure what I'm doing here
-	// maybe table.BulkAppend(tableData) but we need it as a []string
-	for _, row := range tableData {
-		table.Append([]string{row.Version, row.Status})
-	}
 	table.Render()
+
+	fmt.Println(tableString.String())
 }
