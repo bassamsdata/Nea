@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"nvm_manager_go/utils"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
+	"strings"
+
+	"nvm_manager_go/utils"
 
 	"github.com/fatih/color"
 )
@@ -19,7 +22,7 @@ type Release struct {
 
 func installNightly() error {
 	// 0.get system and arch for file name and stop if os is not supported
-	filename, err := getArchiveFilename()
+	filename, err := getArchiveFilename("nightly")
 	if err != nil {
 		return err
 	}
@@ -83,7 +86,7 @@ func installNightly() error {
 }
 
 // NOTE: this is just for nightly veriosn currently
-func getArchiveFilename() (string, error) {
+func getArchiveFilename(version string) (string, error) {
 	os := runtime.GOOS
 	arch := runtime.GOARCH
 
@@ -91,14 +94,46 @@ func getArchiveFilename() (string, error) {
 		return "", fmt.Errorf("unsupported operating system: %s. currently only support macOS but PR is welcome", os)
 	}
 
-	switch arch {
-	case "amd64":
-		return "nvim-macos-x86_64.tar.gz", nil
-	case "arm64":
-		return "nvim-macos-arm64.tar.gz", nil
-	default:
-		return "", fmt.Errorf("unsupported architecture: %s", arch)
+	if version == "nightly" || compareVersions(version, "0.10.0") >= 0 {
+		switch arch {
+		case "amd64":
+			return "nvim-macos-x86_64.tar.gz", nil
+		case "arm64":
+			return "nvim-macos-arm64.tar.gz", nil
+		default:
+			return "", fmt.Errorf("unsupported architecture: %s", arch)
+		}
+	} else {
+		return "nvim-macos.tar.gz", nil
 	}
+}
+
+func compareVersions(v1, v2 string) int {
+	v1Parts := strings.Split(v1, ".")
+	v2Parts := strings.Split(v2, ".")
+
+	maxLen := len(v1Parts)
+	if len(v2Parts) > maxLen {
+		maxLen = len(v2Parts)
+	}
+
+	for i := 0; i < maxLen; i++ {
+		partV1, partV2 := 0, 0
+		if i < len(v1Parts) {
+			partV1, _ = strconv.Atoi(v1Parts[i])
+		}
+		if i < len(v2Parts) {
+			partV2, _ = strconv.Atoi(v2Parts[i])
+		}
+
+		if partV1 < partV2 {
+			return -1
+		} else if partV1 > partV2 {
+			return 1
+		}
+	}
+
+	return 0
 }
 
 func updateVersionsInfo(latestRelease Release, targetDir string) error {
@@ -122,7 +157,7 @@ func updateVersionsInfo(latestRelease Release, targetDir string) error {
 		// Delete the corresponding directory
 		// FIX: here is something wrong, it should use the oldestVersion.targetDir
 		dirToDelete := filepath.Join(targetDir, oldestVersion.CreatedAt[:10])
-		if err := os.RemoveAll(dirToDelete); err != nil {
+		if err = os.RemoveAll(dirToDelete); err != nil {
 			return fmt.Errorf("failed to delete directory: %w", err)
 		}
 	}
@@ -152,7 +187,7 @@ func updateVersionsInfo(latestRelease Release, targetDir string) error {
 	}
 
 	// Write to versions_info.json
-	err = os.WriteFile(versionFilePath, updatedJson, 0644)
+	err = os.WriteFile(versionFilePath, updatedJson, 0o644)
 	if err != nil {
 		return fmt.Errorf("failed to write versions info: %w", err)
 	}
