@@ -4,13 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"nvm_manager_go/utils"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
-
-	"nvm_manager_go/utils"
 
 	"github.com/fatih/color"
 )

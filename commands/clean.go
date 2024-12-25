@@ -91,12 +91,12 @@ func cleanLatestNightly() error {
 	// Remove the first element
 	versions = append(versions[:0], versions[1:]...)
 
-	// renumber the unique numbers again
+	// Renumber the unique numbers again
 	for i := range versions {
 		versions[i].UniqueNumber = i
 	}
 
-	// Update the versions_info.json file
+	// Update the versions_info.Json file
 	updatedJson, err := json.MarshalIndent(versions, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal updated versions info: %w", err)
@@ -163,7 +163,7 @@ func findNightlyVersion(versions []utils.VersionInfo, dateStr string) (int, bool
 	return -1, false // Not found
 }
 
-func cleanSpecificNightly(target string) error { // target is a date like 2022-12-07
+func cleanSpecificNightly(target string) error { // Target is a date like 2022-12-07
 	versions, err := utils.ReadVersionsInfo()
 	if err != nil {
 		return fmt.Errorf("failed to read versions info: %w", err)
@@ -185,7 +185,7 @@ func cleanSpecificNightly(target string) error { // target is a date like 2022-1
 
 	versions = append(versions[:index], versions[index+1:]...)
 
-	// Update  versions_info.json
+	// Update versions_info.Json
 	updatedJson, _ := json.Marshal(versions)
 	err = os.WriteFile(versionsFilePath, updatedJson, 0644)
 	if err != nil {
@@ -197,7 +197,7 @@ func cleanSpecificNightly(target string) error { // target is a date like 2022-1
 }
 
 func cleanSpecificStable(versionStr string) error {
-	// if version is stable -> get the version no
+	// If version is stable -> get the version no
 	versionStr, err := utils.ResolveVersion(versionStr)
 	if err != nil {
 		return err

@@ -82,7 +82,6 @@ func listHandler(args []string) {
 	}
 }
 
-// BUG: if we cleaned stable we can't run this command
 func listHandlerLocal() {
 	versions, err := utils.ReadVersionsInfo()
 	if err != nil {
