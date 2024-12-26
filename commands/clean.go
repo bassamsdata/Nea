@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"nvm_manager_go/utils"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"nvm_manager_go/utils"
 
 	"github.com/spf13/cobra"
 )
@@ -102,7 +103,7 @@ func cleanLatestNightly() error {
 		return fmt.Errorf("failed to marshal updated versions info: %w", err)
 	}
 
-	err = os.WriteFile(versionsFilePath, updatedJson, 0644)
+	err = os.WriteFile(versionsFilePath, updatedJson, 0o644)
 	if err != nil {
 		return fmt.Errorf("failed to write updated versions info: %w", err)
 	}
@@ -130,7 +131,7 @@ func cleanAllNightly() error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal updated versions: %w", err)
 	}
-	err = os.WriteFile(versionsFilePath, updatedJson, 0644)
+	err = os.WriteFile(versionsFilePath, updatedJson, 0o644)
 	if err != nil {
 		return fmt.Errorf("failed to update versions info file: %w", err)
 	}
@@ -187,7 +188,7 @@ func cleanSpecificNightly(target string) error { // Target is a date like 2022-1
 
 	// Update versions_info.Json
 	updatedJson, _ := json.Marshal(versions)
-	err = os.WriteFile(versionsFilePath, updatedJson, 0644)
+	err = os.WriteFile(versionsFilePath, updatedJson, 0o644)
 	if err != nil {
 		return err
 	}

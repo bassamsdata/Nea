@@ -2,10 +2,11 @@ package commands
 
 import (
 	"fmt"
-	"nvm_manager_go/utils"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"nvm_manager_go/utils"
 
 	"github.com/spf13/cobra"
 )
@@ -52,14 +53,28 @@ func useFinalHandler(args []string) {
 }
 
 func useVersion(version string, optionalDir *string) error {
-	symlinkPath := "/usr/local/bin/nvim"
+	// Get base paths
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %w", err)
+	}
 
-	// if version is stable -> get the version no
-	version, err := utils.ResolveVersion(version)
+	baseDir := filepath.Join(homeDir, ".local", "share", "neoManager")
+	binDir := filepath.Join(baseDir, "bin")
+	symlinkPath := filepath.Join(binDir, "nvim")
+
+	// Ensure bin directory exists
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create bin directory: %w", err)
+	}
+
+	// Resolve version (stable -> actual version number)
+	version, err = utils.ResolveVersion(version)
 	if err != nil {
 		return err
 	}
 
+	// Get the correct archive filename for the architecture
 	archiveFilename, err := getArchiveFilename(version)
 	if err != nil {
 		return fmt.Errorf("failed to determine archive filename: %w", err)
@@ -67,36 +82,33 @@ func useVersion(version string, optionalDir *string) error {
 
 	// Extract the directory name from the archive filename
 	dirName := strings.TrimSuffix(archiveFilename, ".tar.gz")
+
 	var neovimBinary string
 	if version == "nightly" {
-		switch {
-		// NOTE: I'm not sure why I did this, it's creating a bug where the
-		// symlink won't work in install nightly
-		case optionalDir != nil:
-			neovimBinary = *optionalDir
-		default:
-			versions, _ := utils.ReadVersionsInfo() // already sorted
-			if len(versions) > 0 {
-				// Get the archive filename based on the current architecture
-				neovimBinary = filepath.Join(versions[0].Directory, dirName, "bin/nvim")
-			} else {
+		if optionalDir != nil {
+			neovimBinary = filepath.Join(*optionalDir, "bin/nvim")
+		} else {
+			versions, err := utils.ReadVersionsInfo()
+			if err != nil || len(versions) == 0 {
 				return fmt.Errorf("no nightly versions installed")
 			}
+			neovimBinary = filepath.Join(versions[0].Directory, dirName, "bin/nvim")
 		}
 	} else {
-		// Build the path for the specific version
-		// FIX: use logic if version == stable
-		neovimBinary = filepath.Join(targetDirStable, version, dirName) + "/bin/nvim"
+		neovimBinary = filepath.Join(targetDirStable, version, dirName, "bin", "nvim")
 	}
 
+	// Verify the binary exists
 	if _, err := os.Stat(neovimBinary); err != nil {
-		return fmt.Errorf("either the version %s is not installed: %w or it is not a valid Neovim version", version, err)
+		return fmt.Errorf("Neovim binary not found at %s: %w", neovimBinary, err)
 	}
 
-	if err := os.Remove(symlinkPath); err != nil {
+	// Remove existing symlink if it exists
+	if err := os.RemoveAll(symlinkPath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to remove existing symlink: %w", err)
 	}
 
+	// Create new symlink
 	if err := os.Symlink(neovimBinary, symlinkPath); err != nil {
 		return fmt.Errorf("failed to create symlink: %w", err)
 	}
