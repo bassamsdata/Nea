@@ -89,6 +89,7 @@ func listHandlerLocal() {
 		return
 	}
 
+	// BUG: this doesn't work with the current state of it
 	currentVersion, err := utils.DetermineCurrentVersion()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to determine current version:", err)
