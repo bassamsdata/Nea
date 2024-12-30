@@ -64,7 +64,7 @@ func useVersion(version string, optionalDir *string) error {
 	symlinkPath := filepath.Join(binDir, "nvim")
 
 	// Ensure bin directory exists
-	if err := os.MkdirAll(binDir, 0o755); err != nil {
+	if mkdirErr := os.MkdirAll(binDir, 0o755); mkdirErr != nil {
 		return fmt.Errorf("failed to create bin directory: %w", err)
 	}
 
@@ -100,7 +100,7 @@ func useVersion(version string, optionalDir *string) error {
 
 	// Verify the binary exists
 	if _, err := os.Stat(neovimBinary); err != nil {
-		return fmt.Errorf("Neovim binary not found at %s: %w", neovimBinary, err)
+		return fmt.Errorf("neovim binary not found at %s: %w", neovimBinary, err)
 	}
 
 	// Remove existing symlink if it exists

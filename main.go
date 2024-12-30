@@ -2,10 +2,9 @@ package main
 
 import (
 	"fmt"
+	"nvm_manager_go/commands"
 	"os"
 	"path/filepath"
-
-	"nvm_manager_go/commands"
 
 	"github.com/spf13/cobra"
 )

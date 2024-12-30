@@ -16,7 +16,7 @@ func Setup() error {
 		appDir,
 		targetNightly,
 		targetDirStable,
-		filepath.Join(appDir, "bin"), // Add bin directory
+		filepath.Join(appDir, "bin"),
 	}
 
 	// Create all directories
@@ -59,7 +59,7 @@ func Setup() error {
 
 // CreateConfigFile creates a config file with default values if it only doesn't exist.
 func createConfigFile() error {
-	if _, err := os.Stat(configPath); err == nil {
+	if _, err := os.Stat(SymlinkPath); err == nil {
 		return nil
 	}
 	defaultConfig := Config{RollbackLimit: 7}
@@ -67,7 +67,7 @@ func createConfigFile() error {
 	if err != nil {
 		return fmt.Errorf("failed to serialize config: %w", err)
 	}
-	if err := os.WriteFile(configPath, configJson, 0o644); err != nil {
+	if err := os.WriteFile(SymlinkPath, configJson, 0o644); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 	return nil

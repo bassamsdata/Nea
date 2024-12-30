@@ -18,6 +18,7 @@ import (
 var (
 	homeDir          = os.Getenv("HOME")
 	appDir           = filepath.Join(homeDir, ".local", "share", "neoManager")
+	SymlinkPath      = filepath.Join(appDir, "bin/nvim")
 	configPath       = filepath.Join(appDir, "config.json")
 	neovimURL        = "https://github.com/neovim/neovim/releases/download/nightly/nvim-macos.tar.gz"
 	targetNightly    = filepath.Join(homeDir, ".local", "share", "neoManager", "nightly")
@@ -73,9 +74,7 @@ func FetchReleases() ([]Release, error) {
 
 // NOTE: Prod-ready function
 func DetermineCurrentVersion() (string, error) {
-	symlinkPath := "/usr/local/bin/nvim"
-
-	fi, err := os.Lstat(symlinkPath)
+	fi, err := os.Lstat(SymlinkPath)
 	if err != nil {
 		return "", fmt.Errorf("neovim is not symlinked: %v", err)
 	}
@@ -84,7 +83,7 @@ func DetermineCurrentVersion() (string, error) {
 		return "", fmt.Errorf("neovim is not symlinked")
 	}
 
-	symlinkTarget, err := os.Readlink(symlinkPath)
+	symlinkTarget, err := os.Readlink(SymlinkPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read symlink target: %w", err)
 	}
@@ -286,7 +285,6 @@ func ReadConfig() (config Config, err error) {
 
 	err = json.Unmarshal(configFile, &config)
 	return config, err
-
 }
 
 func formatDate(createdAt string) string {

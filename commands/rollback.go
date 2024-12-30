@@ -36,7 +36,7 @@ var RollbackCmd = &cobra.Command{
 
 // either use int number or date
 func RollbackVersion(rollbackStep int) error {
-	symlinkPath := "/usr/local/bin/nvim"
+	// symlinkPath := "/usr/local/bin/nvim"
 	var neovimBinary string
 
 	// 1. Read versions_info.json
@@ -71,10 +71,10 @@ func RollbackVersion(rollbackStep int) error {
 	if _, err := os.Stat(neovimBinary); err != nil {
 		return fmt.Errorf("version %s is not installed: %w", rollbackTarget.CreatedAt, err)
 	}
-	if err := os.Remove(symlinkPath); err != nil {
+	if err := os.Remove(utils.SymlinkPath); err != nil {
 		return fmt.Errorf("failed to remove existing symlink: %w", err)
 	}
-	if err := os.Symlink(neovimBinary, symlinkPath); err != nil {
+	if err := os.Symlink(neovimBinary, utils.SymlinkPath); err != nil {
 		return fmt.Errorf("failed to create symlink: %w", err)
 	}
 
