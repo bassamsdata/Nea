@@ -33,7 +33,7 @@ func installNightly() error {
 	}
 
 	// 2. Check if Already Installed
-	if isVersionInstalled(latestRelease.NodeId) {
+	if isVersionInstalled(latestRelease.NodeId, latestRelease.CreatedAt) {
 		color.Yellow("The latest nightly version is already installed.")
 		color.Yellow("Use 'nvm use nightly' to switch to it.")
 		return nil
@@ -212,7 +212,7 @@ func fetchLatestNightlyRelease() (Release, error) {
 	return release, nil
 }
 
-func isVersionInstalled(nodeId string) bool {
+func isVersionInstalled(nodeId, createdAt string) bool {
 	versionsInfo, err := utils.ReadVersionsInfo()
 	if err != nil {
 		// TODO: handle error
@@ -220,7 +220,7 @@ func isVersionInstalled(nodeId string) bool {
 	}
 
 	for _, version := range versionsInfo {
-		if version.NodeID == nodeId {
+		if version.NodeID == nodeId && version.CreatedAt == createdAt {
 			return true
 		}
 	}
