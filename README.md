@@ -1,4 +1,9 @@
-Nea is a command-line tool for managing multiple Neovim versions on Linux and macOS. Install, switch between stable releases and nightly builds, and easily roll back to previous versions.
+<p align="center">
+  <strong style="font-size: 10em;">NEΛ</strong><br>
+  <em>The Neovim version manager</em>
+</p>
+
+NEΛ is a command-line tool for managing multiple Neovim versions on Linux and macOS. Install, switch between stable releases and nightly builds, and easily roll back to previous versions.
 
 ## Features
 
