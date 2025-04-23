@@ -54,16 +54,42 @@ func installNightly() error {
 	}
 	// SUG: we can change dir name here to nvim-macos
 
-	// 5. Extract Archive
-	err = utils.ExtractTarGz(archivePath, targetDir)
-	if err != nil {
-		return fmt.Errorf("failed to extract Neovim: %w", err)
+	osType := runtime.GOOS
+	// 5. Extract Archive or set executable for AppImage
+	switch osType {
+	case "darwin":
+		err = utils.ExtractTarGz(archivePath, targetDir)
+		if err != nil {
+			return fmt.Errorf("failed to extract Neovim: %w", err)
+		}
+	case "linux":
+		err = os.Chmod(archivePath, 0755)
+		if err != nil {
+			return fmt.Errorf("failed to set executable permission: %w", err)
+		}
+
+		// Move the AppImage to the bin directory
+		binDir := filepath.Join(appDir, "bin")
+		finalPath := filepath.Join(binDir, "nvim") // rename to nvim
+		err = os.Rename(archivePath, finalPath)
+		if err != nil {
+			return fmt.Errorf("failed to move AppImage to bin directory: %w", err)
+		}
+
+		// Create a symlink in /usr/local/bin
+		//err = os.Symlink(finalPath, "/usr/local/bin/nvim")
+		//if err != nil {
+		//	fmt.Println("Warning: failed to create symlink in /usr/local/bin/nvim:", err)
+		//}
+
 	}
 
 	// 6. Remove Archive
-	err = os.Remove(archivePath)
-	if err != nil {
-		fmt.Println("Warning: failed to remove archive:", err)
+	if osType == "darwin" {
+		err = os.Remove(archivePath)
+		if err != nil {
+			fmt.Println("Warning: failed to remove archive:", err)
+		}
 	}
 
 	// 8. Update versions_info.json
@@ -81,29 +107,103 @@ func installNightly() error {
 	// 10. Success message
 	color.Green("Neovim nightly installed successfully!")
 	color.Green("and you are using Neovim nightly created on %s", latestRelease.CreatedAt)
+
+	// Create symlink
+	// Reuse osType from earlier in the function
+	binDir := filepath.Join(appDir, "bin")
+
+	// For macOS, we need to find the actual nvim binary inside the extracted app
+	var nvimBinaryPath string
+	if osType == "darwin" {
+		// After extraction, the structure is likely nvim-osx64/bin/nvim or similar
+		// First try to locate the executable using a glob pattern
+		matches, err := filepath.Glob(filepath.Join(targetDir, "*/bin/nvim"))
+		if err == nil && len(matches) > 0 {
+			// Use the first match
+			nvimBinaryPath = matches[0]
+		} else {
+			// Try alternative paths
+			alternativePaths := []string{
+				filepath.Join(targetDir, "nvim-macos", "bin", "nvim"),
+				filepath.Join(targetDir, "bin", "nvim"),
+			}
+
+			for _, path := range alternativePaths {
+				if _, err := os.Stat(path); err == nil {
+					nvimBinaryPath = path
+					break
+				}
+			}
+
+			// If we still couldn't find it, log a detailed error
+			if nvimBinaryPath == "" {
+				// Print directory contents for debugging
+				fmt.Println("DEBUG: Could not find nvim binary. Directory contents:")
+				printDirContents(targetDir)
+				return fmt.Errorf("could not locate nvim binary in extracted directory")
+			}
+		}
+	} else {
+		// For Linux, the binary is directly in the bin directory
+		nvimBinaryPath = filepath.Join(binDir, "nvim")
+	}
+
+	// Remove existing symlink
+	symlinkPath := filepath.Join(appDir, "bin", "nvim")
+	err = os.Remove(symlinkPath)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to remove existing symlink: %w", err)
+	}
+
+	// Create new symlink
+	err = os.Symlink(nvimBinaryPath, symlinkPath)
+	if err != nil {
+		return fmt.Errorf("failed to create symlink: %w", err)
+	}
+
 	return nil
 }
 
 // NOTE: this is just for nightly veriosn currently
 func getArchiveFilename(version string) (string, error) {
-	os := runtime.GOOS
+	osType := runtime.GOOS
 	arch := runtime.GOARCH
 
-	if os != "darwin" {
-		return "", fmt.Errorf("unsupported operating system: %s. currently only support macOS but PR is welcome", os)
-	}
-
-	if version == "nightly" || compareVersions(version, "0.10.0") >= 0 {
+	switch osType {
+	case "darwin":
+		if version == "nightly" || compareVersions(version, "0.10.0") >= 0 {
+			switch arch {
+			case "amd64":
+				return "nvim-macos-x86_64.tar.gz", nil
+			case "arm64":
+				return "nvim-macos-arm64.tar.gz", nil
+			default:
+				return "", fmt.Errorf("unsupported architecture: %s", arch)
+			}
+		} else {
+			return "nvim-macos.tar.gz", nil
+		}
+	case "linux":
 		switch arch {
 		case "amd64":
-			return "nvim-macos-x86_64.tar.gz", nil
+			// For nightly we use AppImage, but for stable we should use tar.gz
+			if version == "nightly" {
+				return "nvim-linux-x86_64.appimage", nil
+			} else {
+				return "nvim-linux64.tar.gz", nil
+			}
 		case "arm64":
-			return "nvim-macos-arm64.tar.gz", nil
+			// Assuming arm64 exists. May need to verify
+			if version == "nightly" {
+				return "nvim-linux-arm64.appimage", nil
+			} else {
+				return "nvim-linux-arm64.tar.gz", nil
+			}
 		default:
 			return "", fmt.Errorf("unsupported architecture: %s", arch)
 		}
-	} else {
-		return "nvim-macos.tar.gz", nil
+	default:
+		return "", fmt.Errorf("unsupported operating system: %s. currently only support macOS and Linux but PR is welcome", osType)
 	}
 }
 
@@ -111,12 +211,9 @@ func compareVersions(v1, v2 string) int {
 	v1Parts := strings.Split(v1, ".")
 	v2Parts := strings.Split(v2, ".")
 
-	maxLen := len(v1Parts)
-	if len(v2Parts) > maxLen {
-		maxLen = len(v2Parts)
-	}
+	maxLen := max(len(v2Parts), len(v1Parts))
 
-	for i := 0; i < maxLen; i++ {
+	for i := range maxLen {
 		partV1, partV2 := 0, 0
 		if i < len(v1Parts) {
 			partV1, _ = strconv.Atoi(v1Parts[i])
@@ -215,12 +312,12 @@ func fetchLatestNightlyRelease() (Release, error) {
 func isVersionInstalled(nodeId, createdAt string) bool {
 	versionsInfo, err := utils.ReadVersionsInfo()
 	if err != nil {
-		// TODO: handle error
 		return false
 	}
 
 	for _, version := range versionsInfo {
-		if version.NodeID == nodeId && version.CreatedAt == createdAt {
+		// Check if the exact same node ID is installed
+		if version.NodeID == nodeId {
 			return true
 		}
 	}

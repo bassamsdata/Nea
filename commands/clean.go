@@ -4,12 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"nvm_manager_go/utils"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-
-	"nvm_manager_go/utils"
 
 	"github.com/spf13/cobra"
 )

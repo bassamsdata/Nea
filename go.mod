@@ -1,11 +1,15 @@
 module nvm_manager_go
 
-go 1.22.0
+go 1.23.0
+
+toolchain go1.24.1
 
 require (
 	github.com/fatih/color v1.16.0
 	github.com/spf13/cobra v1.8.0
 )
+
+require golang.org/x/mod v0.24.0
 
 require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect

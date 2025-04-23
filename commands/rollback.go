@@ -80,7 +80,3 @@ func RollbackVersion(rollbackStep int) error {
 
 	return nil
 }
-
-func removeNightlyversion() error {
-	return nil
-}

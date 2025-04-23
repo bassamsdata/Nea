@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/fatih/color"
@@ -76,10 +77,5 @@ func createConfigFile() error {
 func isInPath(dir string) bool {
 	path := os.Getenv("PATH")
 	paths := strings.Split(path, ":")
-	for _, p := range paths {
-		if p == dir {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(paths, dir)
 }

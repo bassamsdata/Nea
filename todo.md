@@ -1,5 +1,5 @@
-# Short term (0.1.0) All Done 
-- [x] Modify the updateVersionInfo function to have sort and and better unique number 
+# Short term (0.1.0) All Done
+- [x] Modify the updateVersionInfo function to have sort and and better unique number
 - [x] check the rollback version again
    - [x] get the version
    - [x] use the verison
@@ -43,4 +43,3 @@
 - [ ] add support for linux and windows
 - [ ] add `nvm clean n` to clean the oldest n versions
     - like `nvm clean 5` to clean the oldest 5 versions
-

@@ -2,12 +2,12 @@ package commands
 
 import (
 	"fmt"
+	"nvm_manager_go/utils"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"nvm_manager_go/utils"
-
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
 
@@ -68,10 +68,34 @@ func useVersion(version string, optionalDir *string) error {
 		return fmt.Errorf("failed to create bin directory: %w", err)
 	}
 
-	// Resolve version (stable -> actual version number)
-	version, err = utils.ResolveVersion(version)
-	if err != nil {
-		return err
+	// Handle stable version differently
+	if version == "stable" {
+		// First check local versions
+		localVersions, localErr := utils.GetLocalStableVersions()
+		if localErr != nil {
+			return fmt.Errorf("failed to get local versions: %w", localErr)
+		}
+
+		if len(localVersions) == 0 {
+			return fmt.Errorf("no stable versions installed. Run 'nvm install stable' first")
+		}
+
+		// Use the latest local version
+		version = localVersions[0]
+
+		// Check if newer version is available online
+		latestOnline, onlineErr := utils.FetchLatestStable()
+		if onlineErr == nil && version != latestOnline { // Only show warning if we can fetch latest version
+			yellow := color.New(color.FgYellow).SprintFunc()
+			fmt.Printf("%s\n", yellow(fmt.Sprintf("Note: A newer version (%s) is available. Run 'nvm install stable' to get it.", latestOnline)))
+		}
+	} else if version != "nightly" {
+		// For specific versions, resolve version number
+		resolvedVersion, resolveErr := utils.ResolveVersion(version)
+		if resolveErr != nil {
+			return resolveErr
+		}
+		version = resolvedVersion
 	}
 
 	// Get the correct archive filename for the architecture
@@ -88,11 +112,42 @@ func useVersion(version string, optionalDir *string) error {
 		if optionalDir != nil {
 			neovimBinary = filepath.Join(*optionalDir, "bin/nvim")
 		} else {
-			versions, err := utils.ReadVersionsInfo()
-			if err != nil || len(versions) == 0 {
+			versions, readErr := utils.ReadVersionsInfo()
+			if readErr != nil || len(versions) == 0 {
 				return fmt.Errorf("no nightly versions installed")
 			}
-			neovimBinary = filepath.Join(versions[0].Directory, dirName, "bin/nvim")
+			
+			// Check if the directory exists directly
+			versionPath := versions[0].Directory
+			nvimBinPath := filepath.Join(versionPath, dirName, "bin/nvim")
+			
+			// Check if the binary exists at the expected path
+			if _, err := os.Stat(nvimBinPath); err == nil {
+				neovimBinary = nvimBinPath
+			} else {
+				// Handle case where directory structure might be different
+				// This could happen with the new timestamp-based directories
+				entries, err := os.ReadDir(versionPath)
+				if err != nil {
+					return fmt.Errorf("failed to read nightly directory: %w", err)
+				}
+				
+				// Look for nvim directory within the version directory
+				for _, entry := range entries {
+					if entry.IsDir() && strings.Contains(entry.Name(), "nvim") {
+						possibleBin := filepath.Join(versionPath, entry.Name(), "bin/nvim")
+						if _, err := os.Stat(possibleBin); err == nil {
+							neovimBinary = possibleBin
+							break
+						}
+					}
+				}
+				
+				// If we still don't have a binary path, return an error
+				if neovimBinary == "" {
+					return fmt.Errorf("neovim binary not found in %s", versionPath)
+				}
+			}
 		}
 	} else {
 		neovimBinary = filepath.Join(targetDirStable, version, dirName, "bin", "nvim")

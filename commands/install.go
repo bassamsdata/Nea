@@ -5,6 +5,7 @@ import (
 	"nvm_manager_go/utils"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/fatih/color"
@@ -26,33 +27,35 @@ var (
 var InstallCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Install a Neovim version",
-	Args:  cobra.ExactArgs(1),
+	Long: `Install a Neovim version. Valid formats:
+- nightly: Latest nightly build
+- stable: Latest stable version
+- x.y.z: Specific version (e.g., 0.9.5)`,
+	Args: cobra.ExactArgs(1),
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		utils.Setup()
 	},
 	Run: func(cmd *cobra.Command, args []string) {
+		version := args[0]
+
 		var err error
-		switch args[0] {
-		case "nightly":
+		if version == "nightly" {
 			err = installNightly()
 			if err != nil {
 				fmt.Println("Failed to install nightly:", err)
 				return
 			}
-			// fmt.Println("You are now using the nightly version")
-
-		case "stable":
-			err = InstallSpecificStable("stable")
+		} else {
+			// Validate and resolve version before proceeding
+			resolvedVersion, err := utils.ResolveVersion(version)
 			if err != nil {
-				fmt.Println("Failed to install latest stable:", err)
+				fmt.Printf("Error: %v\n", err)
 				return
 			}
-			fmt.Println("You are now using the latest stable version")
 
-		default:
-			err = InstallSpecificStable(args[0])
+			err = InstallSpecificStable(resolvedVersion)
 			if err != nil {
-				fmt.Println("Failed to install version", args[0], ":", err)
+				fmt.Printf("Failed to install version %s: %v\n", resolvedVersion, err)
 				return
 			}
 		}
@@ -95,16 +98,33 @@ func InstallSpecificStable(version string) error {
 		return fmt.Errorf("failed to download Neovim: %w", err)
 	}
 
-	// 3. Extract the archive
-	err = utils.ExtractTarGz(archivePath, targetDir)
-	if err != nil {
-		return fmt.Errorf("failed to extract Neovim: %w", err)
-	}
+	// 3. Extract the archive or set executable permissions for AppImage
+	if strings.HasSuffix(archiveFilename, ".tar.gz") {
+		// Extract tar.gz archive
+		err = utils.ExtractTarGz(archivePath, targetDir)
+		if err != nil {
+			return fmt.Errorf("failed to extract Neovim: %w", err)
+		}
 
-	// 4. Remove the downloaded archive
-	err = os.Remove(archivePath)
-	if err != nil {
-		fmt.Println("Warning (non-fatal): Failed to remove Neovim archive:", err)
+		// 4. Remove the downloaded archive
+		err = os.Remove(archivePath)
+		if err != nil {
+			fmt.Println("Warning (non-fatal): Failed to remove Neovim archive:", err)
+		}
+	} else if strings.HasSuffix(archiveFilename, ".appimage") {
+		// Set executable permissions for AppImage
+		err = os.Chmod(archivePath, 0755)
+		if err != nil {
+			return fmt.Errorf("failed to set executable permission: %w", err)
+		}
+
+		// Move the AppImage to the bin directory
+		binDir := filepath.Join(appDir, "bin")
+		finalPath := filepath.Join(binDir, "nvim") // rename to nvim
+		err = os.Rename(archivePath, finalPath)
+		if err != nil {
+			return fmt.Errorf("failed to move AppImage to bin directory: %w", err)
+		}
 	}
 
 	err = useVersion(version, nil)

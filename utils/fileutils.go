@@ -11,8 +11,11 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/fatih/color"
 )
 
 var (
@@ -108,6 +111,35 @@ func DetermineCurrentVersion() (string, error) {
 	return "", fmt.Errorf("failed to parse version from symlink target")
 }
 
+func GetLocalStableVersions() ([]string, error) {
+	files, err := os.ReadDir(targetDirStable)
+	if err != nil {
+		return nil, err
+	}
+	versions := make([]string, 0)
+	for _, file := range files {
+		if file.IsDir() && strings.HasPrefix(file.Name(), "0.") {
+			versions = append(versions, file.Name())
+		}
+	}
+
+	// Sort versions in descending order
+	sort.Slice(versions, func(i, j int) bool {
+		vI := strings.Split(versions[i], ".")
+		vJ := strings.Split(versions[j], ".")
+		for k := 0; k < len(vI) && k < len(vJ); k++ {
+			if vI[k] != vJ[k] {
+				iNum, _ := strconv.Atoi(vI[k])
+				jNum, _ := strconv.Atoi(vJ[k])
+				return iNum > jNum
+			}
+		}
+		return len(vI) > len(vJ)
+	})
+
+	return versions, nil
+}
+
 // TODO: make CreatedAt a Time so we can do this sort
 //
 //	sort.Slice(versions, func(i, j int) bool {
@@ -122,17 +154,80 @@ func SortVersionsDesc(versions []VersionInfo) {
 }
 
 func ResolveVersion(version string) (string, error) {
-	if strings.ToLower(version) == "stable" {
-		latestVersion, err := fetchLatestStable()
+	// Validate allowed keywords first
+	validKeywords := []string{"stable", "nightly"}
+	versionLower := strings.ToLower(version)
+
+	// Check for misspelled keywords first
+	for _, keyword := range validKeywords {
+		if strings.ToLower(version) != keyword && levenshtein(versionLower, keyword) <= 2 {
+			return "", fmt.Errorf("did you mean '%s'?", keyword)
+		}
+	}
+
+	// Handle "stable" keyword
+	if versionLower == "stable" {
+		latestVersion, err := FetchLatestStable()
 		if err != nil {
 			return "", fmt.Errorf("failed to fetch latest stable version: %w", err)
 		}
 		return latestVersion, nil
 	}
+
+	// Handle "nightly" keyword
+	if versionLower == "nightly" {
+		return "nightly", nil // Just return nightly, let the commands handle it
+	}
+
+	// Validate version format (should be like "0.9.5" or "v0.9.5")
+	version = strings.TrimPrefix(version, "v") // Remove 'v' prefix if present
+
+	// Regular expression for semantic versioning (major.minor.patch)
+	versionRegex := regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
+	if !versionRegex.MatchString(version) {
+		red := color.New(color.FgRed).SprintFunc()
+		cyan := color.New(color.FgCyan).SprintFunc()
+		return "", fmt.Errorf("%s\nValid formats:\n- %s: Latest nightly build\n- %s: Latest stable version\n- %s: Specific version (e.g., 0.9.5)",
+			red("Invalid version format"),
+			cyan("nightly"),
+			cyan("stable"),
+			cyan("x.y.z"))
+	}
+
 	return version, nil
 }
 
-func fetchLatestStable() (string, error) {
+// Helper function to calculate Levenshtein distance for suggesting corrections
+func levenshtein(a, b string) int {
+	if len(a) == 0 {
+		return len(b)
+	}
+	if len(b) == 0 {
+		return len(a)
+	}
+	if a[0] == b[0] {
+		return levenshtein(a[1:], b[1:])
+	}
+	return 1 + min(
+		levenshtein(a[1:], b),
+		levenshtein(a, b[1:]),
+		levenshtein(a[1:], b[1:]))
+}
+
+func min(nums ...int) int {
+	if len(nums) == 0 {
+		return 0
+	}
+	m := nums[0]
+	for _, n := range nums {
+		if n < m {
+			m = n
+		}
+	}
+	return m
+}
+
+func FetchLatestStable() (string, error) {
 	releases, err := FetchReleases()
 	if err != nil {
 		return "", err
@@ -184,6 +279,25 @@ func CreateTargetDirectory(createdAt string) (string, error) {
 
 	formattedDate := t.Format("2006-01-02")
 	targetDir := filepath.Join(targetDirNightly, formattedDate)
+
+	// Check if a directory for this date already exists
+	if _, err := os.Stat(targetDir); err == nil {
+		// Directory exists, check if it's a different nodeId for same date
+		// by checking if this exact createdAt timestamp already exists in versions_info.json
+		versions, err := ReadVersionsInfo()
+		if err == nil {
+			for _, v := range versions {
+				// If we have the exact same date but different timestamp/nodeId
+				existingTime, _ := time.Parse(time.RFC3339, v.CreatedAt)
+				if existingTime.Format("2006-01-02") == formattedDate && v.CreatedAt != createdAt {
+					// Add the hour and minute to make the directory unique
+					formattedDate = t.Format("2006-01-02-1504") // Add hour and minute (HHMM format)
+					targetDir = filepath.Join(targetDirNightly, formattedDate)
+					break
+				}
+			}
+		}
+	}
 
 	err = os.MkdirAll(targetDir, 0755)
 	if err != nil {
@@ -285,16 +399,4 @@ func ReadConfig() (config Config, err error) {
 
 	err = json.Unmarshal(configFile, &config)
 	return config, err
-}
-
-func formatDate(createdAt string) string {
-	if createdAt != "" {
-		t, err := time.Parse(time.RFC3339, createdAt)
-		if err != nil {
-			fmt.Println("Error parsing date:", err) // Or use a logging library
-			return "N/A"
-		}
-		return t.Format("2006-01-02")
-	}
-	return ""
 }
